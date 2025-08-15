@@ -4,11 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Kauptilboð – OCR demo + beiðnir</title>
+
+  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js"></script>
+
+  <!-- Tesseract.js (OCR) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- docx.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.3.2/docx.min.js"></script>
+
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body class="p-4 md:p-8">
@@ -20,12 +29,19 @@
       </h1>
       <div class="text-sm muted">Static demo • Engin gögn send út</div>
     </header>
+
+    <!-- UPLOAD -->
     <section class="card p-4 md:p-6">
       <div class="grid md:grid-cols-2 gap-4 items-start">
         <div>
           <label class="block mb-2">Hlaða upp kauptilboði (PDF)</label>
           <input id="file" type="file" accept="application/pdf" />
           <p class="muted mt-2 text-sm">Ef PDF er skannað (mynd), notar kerfið sjálfkrafa OCR.</p>
+          <div id="ocrState" class="mt-3 hidden">
+            <div class="text-blue-300 mb-1 text-sm">OCR í gangi – getur tekið nokkrar sekúndur.</div>
+            <progress id="ocrProgress" value="0" max="100"></progress>
+            <div id="ocrMsg" class="muted text-xs mt-1"></div>
+          </div>
         </div>
         <div>
           <div class="text-sm text-blue-300 mb-2">Hraðsamantekt</div>
@@ -33,8 +49,73 @@
         </div>
       </div>
     </section>
+
+    <!-- RAW TEXT -->
+    <section class="card p-4 md:p-6">
+      <div class="text-sm text-blue-300 mb-2">Unninn texti (úr PDF eða handvirkt límt)</div>
+      <textarea id="raw" rows="10" placeholder="Límdu texta úr kauptilboði ef þú vilt prófa án PDF..."></textarea>
+      <div class="mt-3 flex gap-2">
+        <button id="parseBtn" class="btn bg-blue-600 hover:bg-blue-500">Greina texta</button>
+        <button id="clearBtn" class="btn bg-gray-700 hover:bg-gray-600">Hreinsa</button>
+      </div>
+    </section>
+
+    <!-- FIELDS -->
+    <section class="card p-4 md:p-6">
+      <div class="text-sm text-blue-300 mb-2">Greindir reitir (má breyta handvirkt)</div>
+      <div class="grid-2">
+        <div><label>Seljandi – nafn</label><input id="sellerName" /></div>
+        <div><label>Seljandi – kennitala</label><input id="sellerSSN" /></div>
+        <div><label>Kaupandi – nafn</label><input id="buyerName" /></div>
+        <div><label>Kaupandi – kennitala</label><input id="buyerSSN" /></div>
+        <div><label>Eign – heimilisfang</label><input id="propertyAddress" /></div>
+        <div><label>Fasteignanúmer / landnúmer</label><input id="propertyId" /></div>
+        <div><label>Kaupverð (ISK)</label><input id="price" /></div>
+        <div><label>Trygging / útborgun (ISK)</label><input id="deposit" /></div>
+        <div><label>Afhendingardagur</label><input id="handover" /></div>
+        <div><label>Fyrirvarar / sérákvæði</label><input id="conditions" /></div>
+        <div><label>Útgáfudagur afsals</label><input id="deedIssueDate" /></div>
+        <div><label>Fyrirvarar seljanda</label><input id="sellerContingencies" /></div>
+        <div><label>Fyrirvarar kaupanda</label><input id="buyerContingencies" /></div>
+      </div>
+
+      <div class="mt-4 grid md:grid-cols-3 gap-3">
+        <button id="btnVedleyfi" class="btn bg-yellow-600 hover:bg-yellow-500">Sækja um skilyrt veðleyfi (DOCX)</button>
+        <button id="btnVedflutningur" class="btn bg-emerald-600 hover:bg-emerald-500">Útbúa veðflutningsbeiðni (DOCX)</button>
+        <button id="btnLanaskjol" class="btn bg-indigo-600 hover:bg-indigo-500">Biðja um lánaskjöl (Email draft)</button>
+      </div>
+
+      <div class="mt-3 flex flex-wrap gap-3">
+        <label class="badge warn"><input id="hasLoan" type="checkbox"> Eign með láni</label>
+        <label class="badge warn"><input id="hasChain" type="checkbox"> 2+ eignir í keðju</label>
+        <label class="badge warn"><input id="hasLandLease" type="checkbox"> Lóðarleiga</label>
+      </div>
+    </section>
+
+    <!-- CHECKLIST -->
+    <section class="card p-4 md:p-6">
+      <div class="text-sm text-blue-300 mb-2">Gátlisti – hvað vantar?</div>
+      <div id="checklist" class="space-y-2 text-sm"></div>
+      <div class="mt-3">
+        <button id="refreshChecklist" class="btn bg-emerald-600 hover:bg-emerald-500">Endurreikna gátlista</button>
+      </div>
+    </section>
+
+    <!-- JSON OUT -->
+    <section class="card p-4 md:p-6">
+      <div class="text-sm text-blue-300 mb-2">JSON‑útflutningur</div>
+      <div class="grid-2">
+        <textarea id="jsonOut" rows="12" class="code"></textarea>
+        <div>
+          <div class="muted mb-2">Afrita niðurstöður</div>
+          <button id="copyJson" class="btn bg-indigo-600 hover:bg-indigo-500">Afrita JSON</button>
+        </div>
+      </div>
+    </section>
+
     <footer class="text-xs muted text-center py-6">© Prufa – Skjalavinnslukerfi fasteignasala</footer>
   </div>
+
   <script src="assets/script.js"></script>
 </body>
 </html>
